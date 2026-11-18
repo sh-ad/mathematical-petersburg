@@ -4,6 +4,9 @@ import html
 import json
 import shutil
 import zipfile
+import subprocess
+import argparse
+from presenter import CARDS, render as presenter_page
 from content import SLIDES, EXTRA_SOURCES
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -73,7 +76,7 @@ def page(title,body,script='',cls=''):
 def refs(keys):
  return ' · '.join(f'<a href="../sources/index.html#{key}" target="_blank" rel="noopener">{key}</a>' for key in keys)
 
-def main():
+def main(pdf=False):
  for path in ['participants','presenter','reference','sources','downloads']:(OUT/path).mkdir(parents=True,exist_ok=True)
  shutil.copytree(ROOT/'assets',OUT/'assets',dirs_exist_ok=True)
  screens=[]
@@ -84,11 +87,7 @@ def main():
  # В интерфейсе участников отсутствует переход к опорному плану.
  body=body.replace('<a href="../presenter/index.html">Текстовый материал</a>','<a href="../reference/index.html">Подробный справочник</a>')
  (OUT/'participants/index.html').write_text(page('Математический Петербург · участникам',body,'<script src="../model.js"></script><script src="../show.js"></script>','show-page'))
- guide_cards=[]
- for i,s in enumerate(SLIDES,1):
-  guide_cards.append(f'''<article class="guide-card" id="plan-{s['id']}"><header><p class="eyebrow">{i:02} / 16 · {s['place']} · {s['minutes']}</p><h2>{s['title']}</h2><a class="show-link" href="../participants/index.html#{s['id']}" target="participants">Показать экран {i:02} ↗</a></header><p class="guide-goal">{s['goal']}</p><dl><dt>Вопрос группе</dt><dd class="guide-question">{s['ask']}</dd><dt>Действие</dt><dd>{s['action']}</dd><dt>Опорный ответ</dt><dd>{s['answer']}</dd><dt>Переход</dt><dd>{s['transition']}</dd></dl><details><summary>Реплика ведущего и точность формулировок</summary><p>{s['say']}</p><p class="limit">{s['limit']}</p><p class="source-line">{refs(s['sources'])}</p></details></article>''')
- guide=f'''<header class="site-top"><a class="brand" href="#top">Математический Петербург</a><span>Ведущему</span><nav><a href="../reference/index.html">Справочник</a><a href="../sources/index.html">Источники</a><button type="button" onclick="window.print()">Печать</button></nav></header><main class="guide-main" id="top"><div class="guide-hero"><p class="eyebrow">Опорный план · компактная прогулка</p><h1>Держать нить.<br>Давать идеям продолжение.</h1><p>16 экранов для участников и подсказки к каждому: цель, вопрос, действие, ответ и переход.</p><a class="primary-link" href="../participants/index.html" target="participants">Открыть сайт участников ↗</a><a class="text-link" href="https://sh-ad.github.io/mathematical-petersburg/downloads/offline.zip" download>Весь комплект без интернета ↓</a></div><section class="guide-intro"><h2>Три места сбора</h2><div class="route-cards"><article><b>01 · 18 минут</b><h3>Кунсткамера + Академия</h3><p>Экраны 01–06. Условия науки, наставник, помощники, мосты.</p></article><article><b>02 · 24 минуты</b><h3>Двенадцать коллегий</h3><p>Экраны 07–14. Чебышёв, ученики, Ковалевская.</p></article><article><b>03 · до 10 минут</b><h3>Дом академиков</h3><p>Экраны 15–16. Разные поколения и финальный вопрос.</p></article></div><p class="limit">52 минуты содержательных блоков с резервом. 75–90 минут с переходами — цель, а не замер. Дом Эйлера и семейный адрес Ковалевской рассказываются без обязательного перехода к ним.</p><details><summary>Перед выходом и сокращение на холоде</summary><p>Открыть сайт участников в отдельной вкладке; проверить яркость и видимость с края группы. Скачать и распаковать офлайн-комплект заранее. Для активностей достаточно карандаша и бумаги; волчок необязателен.</p><p>В коротком варианте оставить даты, наставника, мосты, механизм, прогноз, одну историю Ковалевской и финал. Убрать повторные раунды, отдельный анализ текста и дополнительные вопросы. Ориентир — около 30 минут содержания; переходы и сбор группы добавляются отдельно.</p><p>Точки сбора, расстояния, слышимость и доступность надписей проверить на месте. Выбирать видимую надпись, не обещать доступ в музей, университет или дворы.</p></details></section><nav class="guide-toc" aria-label="Быстрый выбор экрана">{''.join(f'<a href="#plan-{s["id"]}">{i:02} · {s["title"]}</a>' for i,s in enumerate(SLIDES,1))}</nav>{''.join(guide_cards)}<footer class="site-footer"><a href="../sources/index.html">Источники и лицензии</a><p>Все реплики ведущего современные. Исторические свидетельства подписаны. Учебные численные данные вымышлены. Материалы подготовлены для группы 16–17 лет.</p></footer></main>'''
- (OUT/'presenter/index.html').write_text(page('Математический Петербург · ведущему',guide,cls='guide-page'))
+ (OUT/'presenter/index.html').write_text(presenter_page())
  reference=(ROOT/'src/reference.html').read_text().replace('href="Математический Петербург.html"','href="../presenter/index.html"').replace('Основная страница ↗','План ведущего ↗')
  (OUT/'reference/index.html').write_text(reference)
  all_sources=[(x['id'],x['title'],x['type']+' '+x['use'],x['url']) for x in SOURCES]+EXTRA_SOURCES
@@ -98,11 +97,16 @@ def main():
  (OUT/'sources/index.html').write_text(page('Источники · Математический Петербург',source_body))
  (OUT/'index.html').write_text('<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=participants/"><title>Математический Петербург</title><a href="participants/">Открыть иллюстрации для участников</a></html>')
  (OUT/'.nojekyll').write_text('')
+ if pdf:
+  subprocess.run(['node',str(ROOT/'scripts/print-presenter.js')],check=True)
  # Архив содержит относительные ссылки и обычные скрипты: открывается без сервера.
  zip_path=OUT/'downloads/offline.zip'
  with zipfile.ZipFile(zip_path,'w',zipfile.ZIP_DEFLATED) as archive:
   for file in sorted(OUT.rglob('*')):
    if file.is_file() and file!=zip_path and file.suffix not in ('.zip',):archive.write(file,file.relative_to(OUT))
- print(f'Собраны два сайта: {len(SLIDES)} экранов участников и {len(SLIDES)} карточек ведущего; офлайн-архив {zip_path.stat().st_size//1024} КБ')
+ print(f'Собраны два сайта: {len(SLIDES)} экранов участников и {len(CARDS)} карточек ведущего; офлайн-архив {zip_path.stat().st_size//1024} КБ')
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+ parser=argparse.ArgumentParser()
+ parser.add_argument('--pdf',action='store_true',help='Пересоздать PDF карточек через локальный Chrome')
+ main(parser.parse_args().pdf)

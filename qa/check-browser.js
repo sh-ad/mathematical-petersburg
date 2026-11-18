@@ -70,8 +70,14 @@ async function screenshot(name){const r=await call('Page.captureScreenshot',{for
   check('Derivative updates',await evaluate(`document.querySelector('#speed-value').textContent==='6'`));
   check('Separate participant interface',await evaluate(`[...document.querySelectorAll('a')].every(a=>!a.href.includes('/presenter/'))`));
   await load('presenter/index.html');
-  check('16 presenter cards',await evaluate(`document.querySelectorAll('.guide-card').length===16`));
-  check('Links to participant screens',await evaluate(`document.querySelectorAll('.show-link').length===16`));
+  check('6 address cards',await evaluate(`document.querySelectorAll('.route-card').length===6`));
+  check('Links to participant screens',await evaluate(`document.querySelectorAll('.show-link').length>=6`));
+  check('Address and dates on every card',await evaluate(`[...document.querySelectorAll('.route-card')].every(c=>c.querySelector('.address')&&c.querySelectorAll('.dates dt').length===3)`));
+  check('Printable PDF linked',await evaluate(`!!document.querySelector('a[href="../downloads/presenter-cards.pdf"]')`));
+  await call('Emulation.setEmulatedMedia',{media:'print'});
+  const cardLayout=await evaluate(`[...document.querySelectorAll('.route-card')].map(c=>({id:c.id,overflow:c.scrollHeight-c.clientHeight,clearance:c.querySelector('.card-ending').getBoundingClientRect().top-c.querySelector('.card-copy').getBoundingClientRect().bottom}))`);
+  check('Print content fits all six cards',cardLayout.every(c=>c.overflow<=1&&c.clearance>=0));
+  await call('Emulation.setEmulatedMedia',{media:''});
   await screenshot('presenter-1280');
   await call('Emulation.setDeviceMetricsOverride',{width:390,height:900,deviceScaleFactor:1,mobile:true});
   check('Presenter narrow screen',await evaluate('document.documentElement.scrollWidth<=innerWidth+1'));
