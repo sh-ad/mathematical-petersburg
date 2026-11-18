@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+qa/*.png
+qa/*.json
+.DS_Store
